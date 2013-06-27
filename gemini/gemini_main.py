@@ -559,7 +559,7 @@ def main():
     args.func(parser, args)
 
     # make sure database is found
-    if args.db is not None and not os.path.exists(args.db):
+    if hasattr(args, "db") and args.db is not None and not os.path.exists(args.db):
         sys.stderr.write("Requested GEMINI database (%s) not found. "
                          "Please confirm the provided filename.\n" % args.db)
 
