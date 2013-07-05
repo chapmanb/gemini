@@ -12,8 +12,9 @@ def release(parser, args):
     url = "https://raw.github.com/arq5x/gemini/master/requirements.txt"
     pip_bin = os.path.join(os.path.dirname(sys.executable), "pip")
     activate_bin = os.path.join(os.path.dirname(sys.executable), "activate")
-    if not os.path.exists(activate_bin):
-        raise NotImplementedError("Can only upgrade gemini installed in virtualenv")
+    conda_dir = os.path.join(os.path.dirname(sys.executable), os.pardir, "conda-meta")
+    if not os.path.exists(activate_bin) and not os.path.exists(conda_dir):
+        raise NotImplementedError("Can only upgrade gemini installed in conda or virtualenv")
     # update libraries
     subprocess.check_call([pip_bin, "install", "--upgrade", "distribute"])
     subprocess.check_call([pip_bin, "install", "-r", url])

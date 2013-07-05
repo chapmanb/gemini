@@ -21,7 +21,8 @@ import subprocess
 import sys
 
 remotes = {"requirements":
-           "https://raw.github.com/arq5x/gemini/master/requirements.txt",
+           # TODO: swap back to base repo requirements when done testing
+           "https://raw.github.com/chapmanb/gemini/master/requirements.txt",
            "cloudbiolinux":
            "https://github.com/chapmanb/cloudbiolinux.git",
            "virtualenv":
@@ -56,26 +57,38 @@ def main(args):
     shutil.rmtree(work_dir)
 
 def install_gemini(remotes, datadir, tooldir, use_sudo):
-    """Install a virtualenv containing gemini plus dependencies.
+    """Install a virtualenv or conda environment containing gemini plus dependencies.
     """
-    virtualenv_dir = os.path.join(datadir, "gemini-virtualenv")
-    if not os.path.exists(virtualenv_dir):
-        subprocess.check_call(["wget", remotes["virtualenv"]])
-        subprocess.check_call([sys.executable, "virtualenv.py", "--no-site-packages",
-                               "--distribute", virtualenv_dir])
-        os.remove("virtualenv.py")
-    pip_cmd = os.path.join(virtualenv_dir, "bin", "pip")
-    ez_cmd = os.path.join(virtualenv_dir, "bin", "easy_install")
-    # work around issue with latest version of pip on MacOSX: https://github.com/pypa/pip/issues/829
-    subprocess.check_call([ez_cmd, "pip==1.2.1"])
+    conda_cmd = os.path.join(os.path.dirname(sys.executable), "conda")
+    if os.path.exists(conda_cmd):
+        condaenv_dir = os.path.normpath(os.path.join(os.path.dirname(sys.executable),
+                                                     os.pardir, "envs", "gemini"))
+        if not os.path.exists(condaenv_dir):
+            subprocess.check_call([conda_cmd, "create", "--yes", "-n", "gemini",
+                                   "numpy", "pysam", "cython", "pyparsing", "pyyaml", "pip",
+                                   "distribute", "ipython"])
+        pip_cmd = os.path.join(condaenv_dir, "bin", "pip")
+        virtualenv_dir = condaenv_dir
+    else:
+        virtualenv_dir = os.path.join(datadir, "gemini-virtualenv")
+        if not os.path.exists(virtualenv_dir):
+            subprocess.check_call(["wget", remotes["virtualenv"]])
+            subprocess.check_call([sys.executable, "virtualenv.py", "--no-site-packages",
+                                   "--distribute", virtualenv_dir])
+            os.remove("virtualenv.py")
+        pip_cmd = os.path.join(virtualenv_dir, "bin", "pip")
+        ez_cmd = os.path.join(virtualenv_dir, "bin", "easy_install")
+        # work around issue with latest version of pip on MacOSX: https://github.com/pypa/pip/issues/829
+        subprocess.check_call([ez_cmd, "pip==1.2.1"])
+        subprocess.check_call([pip_cmd, "install", "--upgrade", "distribute"])
+        subprocess.check_call([pip_cmd, "install", "--upgrade", "cython"])
+        subprocess.check_call([pip_cmd, "install", "--upgrade", "pyyaml"])
+        # Install problem dependencies separately: numpy
+        subprocess.check_call([pip_cmd, "install", "numpy==1.7.1"])
     subprocess.check_call([pip_cmd, "install", "--upgrade", "fabric"])
-    subprocess.check_call([pip_cmd, "install", "--upgrade", "distribute"])
-    subprocess.check_call([pip_cmd, "install", "--upgrade", "cython"])
-    subprocess.check_call([pip_cmd, "install", "--upgrade", "pyyaml"])
-    # Install problem dependencies separately: numpy and bx-python
-    subprocess.check_call([pip_cmd, "install", "numpy==1.7.1"])
-    subprocess.check_call([pip_cmd, "install", "--upgrade",
-                           "https://bitbucket.org/james_taylor/bx-python/get/tip.tar.bz2"])
+    # Install problem dependencies separately: bx-python
+    #subprocess.check_call([pip_cmd, "install", "--upgrade",
+    #                       "https://bitbucket.org/james_taylor/bx-python/get/tip.tar.bz2"])
     subprocess.check_call([pip_cmd, "install", "-r", remotes["requirements"]])
     for script in ["gemini"]:
         final_script = os.path.join(tooldir, "bin", script)
